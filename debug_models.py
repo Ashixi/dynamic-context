@@ -9,10 +9,10 @@ BASE_MODEL_ID = "Qwen/Qwen2.5-1.5B-Instruct"
 MAIN_LORA_PATH = "./qwen_context_manager_lora"
 TAGGER_LORA_PATH = "./checkpoints_tagger_checkpoint-500"
 
-print("[*] Завантаження токенізатора...")
+print("[*] Loading tokenizer...")
 tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL_ID)
 
-print("[*] Завантаження базових моделей...")
+print("[*] Loading base models...")
 base_model_main = AutoModelForCausalLM.from_pretrained(
     BASE_MODEL_ID, device_map="auto", torch_dtype=torch.bfloat16
 )
@@ -20,18 +20,18 @@ base_model_tagger = AutoModelForCausalLM.from_pretrained(
     BASE_MODEL_ID, device_map="auto", torch_dtype=torch.bfloat16
 )
 
-print("[*] Коригування розміру словника для тегувальника (151669)...")
+print("[*] Adjusting vocabulary size for tagger (151669)...")
 base_model_tagger.resize_token_embeddings(151669)
 
-print("[+] Підключення головної моделі (Context Manager)...")
+print("[+] Attaching Main Model (Context Manager)...")
 model_main = PeftModel.from_pretrained(base_model_main, MAIN_LORA_PATH)
 
-print("[+] Підключення моделі-тегувальника (Agentic Memory)...")
+print("[+] Attaching Tagger Model (Agentic Memory)...")
 model_tagger = PeftModel.from_pretrained(base_model_tagger, TAGGER_LORA_PATH)
 
 
 def generate_tagger_text(model, user_text):
-    """Генерація для тегувальника ІЗ ЖОРСТКИМ СИСТЕМНИМ ПРОМПТОМ ТА СПИСКОМ ТЕГІВ"""
+    """Tagger generation with strict system prompt and tag list"""
     
     allowed_tags = [
         "coding_logic", "frontend", "backend", "mobile_dev", "database", 
@@ -77,7 +77,7 @@ def generate_tagger_text(model, user_text):
     return tokenizer.decode(outputs[0][input_length:], skip_special_tokens=True).strip()
 
 def generate_main_text(model, user_text):
-    """Генерація для головної моделі (БЕЗ СИСТЕМНОГО ПРОМПТА, як вчилася)"""
+    """Main model generation (no system prompt, as trained)"""
     messages = [{"role": "user", "content": user_text}]
     text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
     inputs = tokenizer([text], return_tensors="pt").to(model.device)
@@ -95,22 +95,22 @@ def generate_main_text(model, user_text):
 
 if __name__ == "__main__":
     print("\n" + "="*50)
-    print("🛠 RAW DEBUGGER ГОТОВИЙ (System Prompt + Allowed Tags)")
+    print("RAW DEBUGGER READY (System Prompt + Allowed Tags)")
     print("="*50)
     
     while True:
         try:
-            user_in = input("\nВведіть запит (або 'exit'): ")
+            user_in = input("\nEnter query (or 'exit'): ")
             if user_in.lower() in ['exit', 'quit']: break
             if not user_in.strip(): continue
             
             print("\n" + "-"*50)
-            print("1️⃣ СИРИЙ ВИВІД ТЕГУВАЛЬНИКА (з System Prompt):")
+            print("1. RAW TAGGER OUTPUT (with System Prompt):")
             tagger_out = generate_tagger_text(model_tagger, user_in)
             print(f">>>\n{tagger_out}\n<<<")
             
             print("\n" + "-"*50)
-            print("2️⃣ СИРИЙ ВИВІД ГОЛОВНОЇ МОДЕЛІ (без System Prompt):")
+            print("2. RAW MAIN MODEL OUTPUT (no System Prompt):")
             main_out = generate_main_text(model_main, user_in)
             print(f">>>\n{main_out}\n<<<")
             print("-"*50)
